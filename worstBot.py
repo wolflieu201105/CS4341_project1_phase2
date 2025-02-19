@@ -53,6 +53,28 @@ def changeBoard(board, move, type):
         board[moveUsed[0]][moveUsed[1]] = 0
     return board
 
+def checkWinByNumber(board, phase):
+    if phase != 3:
+        return 0
+    blue = 0
+    orange = 0
+    for i in range(7):
+        for j in range(3):
+            if (board[i][j] == 1):
+                blue += 1
+            elif (board[i][j] == -1):
+                orange += 1
+    for i in range (3):
+        if (board[3][i] == 1):
+            blue += 1
+        elif (board[3][i] == -1):
+            orange += 1
+    if blue == 2:
+        return -1
+    if orange == 2:
+        return 1
+    return 0
+    
 def main():
     board = [[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0, 0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0]]
     printBoard(board)
