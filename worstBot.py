@@ -65,6 +65,40 @@ class LaskerMorrisPlayer:
         self.phase = "placing"  # "placing", "moving", or "flying"
         self.pieces_in_hand = 10
 
+    def evaluate_board(self):
+        """Evaluate the current board state and return a score."""
+        my_score = 0
+        opponent_score = 0
+
+        # Piece count advantage
+        my_score += len(self.my_pieces) * 5
+        opponent_score += len(self.opponent_pieces) * 5
+
+        # Count number of mills formed
+        my_mills = sum(1 for mill in MILLS if all(self.board.get(pos) == self.my_color for pos in mill))
+        opponent_mills = sum(1 for mill in MILLS if all(self.board.get(pos) == self.opponent_color for pos in mill))
+        my_score += my_mills * 10
+        opponent_score += opponent_mills * 10
+
+        # Mobility: count number of valid moves available
+        my_mobility = len(self.get_valid_moves())
+        self.phase = "moving"  # Temporarily set phase to consider opponent mobility
+        opponent_mobility = len(self.get_valid_moves())
+        self.phase = "placing"  # Reset phase
+
+        my_score += my_mobility * 2
+        opponent_score += opponent_mobility * 2
+
+        # Threats: potential mills with one missing piece
+        my_threats = sum(1 for mill in MILLS if sum(1 for pos in mill if self.board.get(pos) == self.my_color) == 2 and
+                         any(self.board.get(pos) is None for pos in mill))
+        opponent_threats = sum(1 for mill in MILLS if sum(1 for pos in mill if self.board.get(pos) == self.opponent_color) == 2 and
+                               any(self.board.get(pos) is None for pos in mill))
+        my_score += my_threats * 4
+        opponent_score += opponent_threats * 4
+
+        return my_score - opponent_score
+
     def initialize_game(self, color):
         self.my_color = 'X' if color == "blue" else 'O'
         self.opponent_color = 'O' if color == "blue" else 'X'
@@ -115,8 +149,11 @@ class LaskerMorrisPlayer:
 
     def get_removable_piece(self):
         """Get a random opponent piece that can be removed.
-        Prioritize pieces not in mills unless all pieces are in mills."""
+        Prioritize pieces not in mills unless all pieces are in a mill."""
+        
         non_mill_pieces = []
+        all_in_mill = True  # Assume all pieces are in a mill until proven otherwise
+
         for pos in self.opponent_pieces:
             in_mill = False
             for mill in MILLS:
@@ -126,12 +163,18 @@ class LaskerMorrisPlayer:
                     break
             if not in_mill:
                 non_mill_pieces.append(pos)
+            else:
+                all_in_mill = all_in_mill and True  # Still in mill
 
+        # If some pieces are not in a mill, choose one of them
         if non_mill_pieces:
             return random.choice(non_mill_pieces)
+        # If all pieces are in a mill, choose any piece
         elif self.opponent_pieces:
             return random.choice(self.opponent_pieces)
+        
         return "r0"
+
 
     def make_move(self):
         """Generate and return a valid random move"""
