@@ -1,10 +1,12 @@
 import random
+import time
 
+TIME_LIMIT = 5  # Time limit in seconds
 VALID_MOVES = ["a1", "a4", "a7", "b2", "b4", "b6", "c3", "c4", "c5",
                "d1", "d2", "d3", "d5", "d6", "d7", "e3", "e4", "e5",
                "f2", "f4", "f6", "g1", "g4", "g7"]
 
-# Define adjacent positions as per referee code
+# Rest of the NEIGHBORS and MILLS definitions remain the same...
 NEIGHBORS = {
     "a1": ["a4", "d1"],
     "a4": ["a1", "a7", "b4"],
@@ -32,7 +34,6 @@ NEIGHBORS = {
     "g7": ["d7", "g4"]
 }
 
-# Define all possible mills as per referee code
 MILLS = [
     # Horizontal mills
     ["a1", "a4", "a7"],
@@ -55,7 +56,7 @@ MILLS = [
 ]
 
 
-class LaskerMorrisPlayer:
+class TimedLaskerMorrisPlayer:
     def __init__(self):
         self.board = {}  # position -> color ('X' for blue, 'O' for orange)
         self.my_color = None
@@ -64,6 +65,7 @@ class LaskerMorrisPlayer:
         self.opponent_pieces = []  # List of positions where opponent pieces are
         self.phase = "placing"  # "placing", "moving", or "flying"
         self.pieces_in_hand = 10
+        self.move_start_time = None
 
     def initialize_game(self, color):
         self.my_color = 'X' if color == "blue" else 'O'
@@ -72,9 +74,15 @@ class LaskerMorrisPlayer:
         for pos in VALID_MOVES:
             self.board[pos] = None
 
+    def check_time_limit(self):
+        """Check if we're approaching the time limit"""
+        if self.move_start_time is None:
+            return False
+        elapsed_time = time.time() - self.move_start_time
+        return elapsed_time >= TIME_LIMIT
+
     def check_mill(self, source, target):
-        """Check if placing/moving a stone to target position forms a mill.
-        Matches referee's mill checking logic."""
+        """Check if placing/moving a stone to target position forms a mill."""
         # Temporarily update board state
         if source in self.board:
             old_source_value = self.board[source]
@@ -114,8 +122,7 @@ class LaskerMorrisPlayer:
                     if self.board.get(target) is None]
 
     def get_removable_piece(self):
-        """Get a random opponent piece that can be removed.
-        Prioritize pieces not in mills unless all pieces are in mills."""
+        """Get a random opponent piece that can be removed."""
         non_mill_pieces = []
         for pos in self.opponent_pieces:
             in_mill = False
@@ -134,26 +141,37 @@ class LaskerMorrisPlayer:
         return "r0"
 
     def make_move(self):
-        """Generate and return a valid random move"""
-        if self.phase == "placing":
-            valid_positions = [pos for pos in VALID_MOVES if self.board.get(pos) is None]
-            if not valid_positions:
+        """Generate and return a valid random move with time limit checking"""
+        self.move_start_time = time.time()
+
+        try:
+            if self.check_time_limit():
+                print("Time limit exceeded!", flush=True)  # Debug print
                 return None
 
-            target = random.choice(valid_positions)
-            forms_mill = self.check_mill("h", target)
-            remove_piece = self.get_removable_piece() if forms_mill else "r0"
-            return f"h{1 if self.my_color == 'X' else 2} {target} {remove_piece}"
+            if self.phase == "placing":
+                valid_positions = [pos for pos in VALID_MOVES if self.board.get(pos) is None]
+                if not valid_positions:
+                    return None
 
-        else:  # moving or flying
-            valid_moves = self.get_valid_moves()
-            if not valid_moves:
-                return None
+                target = random.choice(valid_positions)
+                forms_mill = self.check_mill("h", target)
+                remove_piece = self.get_removable_piece() if forms_mill else "r0"
+                return f"h{1 if self.my_color == 'X' else 2} {target} {remove_piece}"
 
-            from_pos, to_pos = random.choice(valid_moves)
-            forms_mill = self.check_mill(from_pos, to_pos)
-            remove_piece = self.get_removable_piece() if forms_mill else "r0"
-            return f"{from_pos} {to_pos} {remove_piece}"
+            else:  # moving or flying
+                valid_moves = self.get_valid_moves()
+                if not valid_moves:
+                    return None
+
+                from_pos, to_pos = random.choice(valid_moves)
+                forms_mill = self.check_mill(from_pos, to_pos)
+                remove_piece = self.get_removable_piece() if forms_mill else "r0"
+                return f"{from_pos} {to_pos} {remove_piece}"
+
+        finally:
+            end_time = time.time()
+            self.move_start_time = None
 
     def update_game_state(self, move):
         """Update internal game state based on a move"""
@@ -202,7 +220,7 @@ class LaskerMorrisPlayer:
 
 
 def main():
-    player = LaskerMorrisPlayer()
+    player = TimedLaskerMorrisPlayer()
 
     # Get color assignment
     color = input().strip()
