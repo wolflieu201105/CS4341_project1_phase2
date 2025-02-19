@@ -181,8 +181,26 @@ def checkPossibleMoves(board, row, col):
                     possibleMoves.append([3, col + 1])
     return possibleMoves
 
-def evaluate(board, type, phase):
-    return 0
+def evaluate(board, phase, turn):
+    blue, orange = 0
+    for i in range(7):
+        for j in range(3):
+            if (board[i][j] == 1):
+                blue += 1
+            elif (board[i][j] == -1):
+                orange += 1
+    for i in range(3):
+        if (board[3][i] == 1):
+            blue += 1
+        elif (board[3][i] == -1):
+            orange += 1
+    if phase == 0:
+        if turn%2 == 0:
+            return (blue - orange)*100
+        else:
+            return (blue - orange - 1)*100
+    else:
+        return (blue - orange)*100
     
 def maxPruning(board, depth, alpha, beta, type, phase, turn, lastChanged):
     if (checkWinByNumber(board, -1, phase)):
@@ -230,7 +248,8 @@ def main():
                 # modify the board
                 myTurn = True
                 turns += 1
-
+            if turns == 20:
+                phase = 1
         except EOFError:
             break
 
