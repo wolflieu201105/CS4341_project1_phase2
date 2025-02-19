@@ -41,6 +41,18 @@ def printBoard(board):
         else:
             print("\t" + str(board[i][0]) + "\t" +  str(board[i][1]) + "\t" +  str(board[i][2]) + "\t" + "\t" +  str(board[i][3]) + "\t" +  str(board[i][4]) + "\t" +  str(board[i][5]))
 
+def changeBoard(board, move, type):
+    move = move.split(" ")
+    if (move[0] != "h1" and move[0] != "h2"):
+        moveUsed = moveToIndex(move[0])
+        board[moveUsed[0]][moveUsed[1]] = 0
+    moveUsed = moveToIndex(move[1])
+    board[moveUsed[0]][moveUsed[1]] = type
+    if (move[2] != "r0"):
+        moveUsed = moveToIndex(move[2])
+        board[moveUsed[0]][moveUsed[1]] = 0
+    return board
+
 def main():
     board = [[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0, 0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0]]
     printBoard(board)
