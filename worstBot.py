@@ -184,28 +184,40 @@ def checkForMill(board, row, col, type):
                 return True
     return False
 
-def checkWinByNumber(board, phase):
+def checkWinByNumber(board, type, phase):
+    type = -type
     if phase != 3:
         return 0
-    blue = 0
-    orange = 0
+    count = 0
     for i in range(7):
         for j in range(3):
-            if (board[i][j] == 1):
-                blue += 1
-            elif (board[i][j] == -1):
-                orange += 1
+            if (board[i][j] == type):
+                count += 1
     for i in range (3):
-        if (board[3][i] == 1):
-            blue += 1
-        elif (board[3][i] == -1):
-            orange += 1
-    if blue == 2:
-        return -1
-    if orange == 2:
-        return 1
+        if (board[3][i] == type):
+            count += 1
+    if type == 2:
+        return True
+    return False
+
+def evaluate(board, type, phase):
     return 0
     
+def maxPruning(board, depth, alpha, beta, type, phase, turn, lastChanged):
+    if (checkWinByNumber(board, -1, phase)):
+        return -1000
+    if (depth == 0):
+        return evaluate(board, type, phase)
+
+def minPruning(board, depth, alpha, beta, type, phase, turn, lastChanged):
+    if (checkWinByNumber(board, 1, phase)):
+        return 1000
+    if (depth == 0):
+        return evaluate(board, type, phase)
+
+def makeMove(board, type, phase, turn, lastChanged):
+    return
+
 def main():
     board = [[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0, 0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0]]
     printBoard(board)
