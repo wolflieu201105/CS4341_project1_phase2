@@ -53,134 +53,47 @@ def changeBoard(board, move, type):
         board[moveUsed[0]][moveUsed[1]] = 0
     return board
 
+def changeBoardWithIndex(board, row, col, type):
+    board[row][col] = type
+    return board
+
 # Check for mill based on the row and column used
 def checkForMill(board, row, col, type):
-    if (row == 0):
-        if (col == 0):
-            if (board[0][1] == type and board[0][2] == type):
+    if (row != 3):
+        for i in range(3):
+            if (board[row][i] != type):
+                break
+            if (i == 2):
                 return True
-            if (board[3][0] == type and board[6][0] == type):
+        if col == 0:
+            if (board[6-row][col] == type and board[3][3 - abs(3-row)] == type):
                 return True
-        if (col == 1):
-            if (board[0][0] == type and board[0][2] == type):
+        elif col == 2:
+            if (board[6-row][col] == type and board[3][2 + abs(3-row)] == type):
                 return True
-            if (board[1][1] == type and board[2][1] == type):
+        else:
+            if row < 3:
+                if (board[0][1] == type and board[1][1] == type and board[2][1] == type):
+                    return True
+            else:
+                if (board[4][1] == type and board[5][1] == type and board[6][1] == type):
+                    return True
+    else:
+        if col < 3:
+            for i in range(3):
+                if (board[3][i] != type):
+                    break
+                if (i == 2):
+                    return True
+            if (board[col][0] == type and board[6 - col][0] == type):
                 return True
-        if (col == 2):
-            if (board[0][0] == type and board[0][1] == type):
-                return True
-            if (board[3][5] == type and board[6][2] == type):
-                return True
-    if (row == 1):
-        if (col == 0):
-            if (board[1][1] == type and board[2][1] == type):
-                return True
-            if (board[3][1] == type and board[5][1] == type):
-                return True
-        if (col == 1):
-            if (board[0][1] == type and board[2][1] == type):
-                return True
-            if (board[1][0] == type and board[1][2] == type):
-                return True
-        if (col == 2):
-            if (board[0][2] == type and board[1][2] == type):
-                return True
-            if (board[3][4] == type and board[5][2] == type):
-                return True
-    if (row == 2):
-        if (col == 0):
-            if (board[2][1] == type and board[2][2] == type):
-                return True
-            if (board[3][0] == type and board[4][0] == type):
-                return True
-        if (col == 1):
-            if (board[1][1] == type and board[0][1] == type):
-                return True
-            if (board[2][0] == type and board[2][2] == type):
-                return True
-        if (col == 2):
-            if (board[2][0] == type and board[2][1] == type):
-                return True
-            if (board[3][3] == type and board[4][2] == type):
-                return True
-    if (row == 3):
-        if (col == 0):
-            if (board[3][1] == type and board[3][2] == type):
-                return True
-            if (board[0][0] == type and board[6][0] == type):
-                return True
-        if (col == 1):
-            if (board[3][0] == type and board[3][2] == type):
-                return True
-            if (board[1][0] == type and board[5][0] == type):
-                return True
-        if (col == 2):
-            if (board[3][0] == type and board[3][1] == type):
-                return True
-            if (board[2][0] == type and board[4][0] == type):
-                return True
-        if (col == 3):
-            if (board[3][4] == type and board[3][5] == type):
-                return True
-            if (board[2][2] == type and board[4][2] == type):
-                return True
-        if (col == 4):
-            if (board[3][3] == type and board[3][5] == type):
-                return True
-            if (board[1][2] == type and board[5][2] == type):
-                return True
-        if (col == 5):
-            if (board[3][3] == type and board[3][4] == type):
-                return True
-            if (board[0][2] == type and board[6][2] == type):
-                return True
-    if (row == 4):
-        if (col == 0):
-            if (board[4][1] == type and board[4][2] == type):
-                return True
-            if (board[2][0] == type and board[3][2] == type):
-                return True
-        if (col == 1):
-            if (board[4][0] == type and board[4][2] == type):
-                return True
-            if (board[5][1] == type and board[6][1] == type):
-                return True
-        if (col == 2):
-            if (board[4][0] == type and board[4][1] == type):
-                return True
-            if (board[3][3] == type and board[2][2] == type):
-                return True
-    if (row == 5):
-        if (col == 0):
-            if (board[5][1] == type and board[5][2] == type):
-                return True
-            if (board[3][1] == type and board[1][0] == type):
-                return True
-        if (col == 1):
-            if (board[5][0] == type and board[5][2] == type):
-                return True
-            if (board[4][1] == type and board[6][1] == type):
-                return True
-        if (col == 2):
-            if (board[5][0] == type and board[5][1] == type):
-                return True
-            if (board[3][4] == type and board[1][2] == type):
-                return True
-    if (row == 6):
-        if (col == 0):
-            if (board[6][1] == type and board[6][2] == type):
-                return True
-            if (board[3][0] == type and board[0][0] == type):
-                return True
-        if (col == 1):
-            if (board[6][0] == type and board[6][2] == type):
-                return True
-            if (board[5][1] == type and board[4][1] == type):
-                return True
-        if (col == 2):
-            if (board[6][0] == type and board[6][1] == type):
-                return True
-            if (board[3][5] == type and board[0][2] == type):
+        else:
+            for i in range(3):
+                if (board[3][i + 3] != type):
+                    break
+                if (i == 2):
+                    return True
+            if (board[col][2] == type and board[6 - col][2] == type):
                 return True
     return False
 
@@ -199,6 +112,74 @@ def checkWinByNumber(board, type, phase):
     if type == 2:
         return True
     return False
+
+def checkEmptySpaces(board):
+    possibleMoves = []
+    for i in range(7):
+        for j in range(3):
+            if (board[i][j] == 0):
+                possibleMoves.append([i, j])
+    for i in range(3):
+        if (board[3][i] == 0):
+            possibleMoves.append([3, i])
+    return possibleMoves
+
+def checkPossibleMoves(board, row, col):
+    possibleMoves = []
+    if row != 3:
+        if col == 0:
+            if (board[3][3 - abs(3-row)] == 0):
+                possibleMoves.append([3, 3 - abs(3-row)])
+            if (board[row][1] == 0):
+                possibleMoves.append([row, 1])
+        elif col == 2:
+            if (board[3][2 + abs(3-row)] == 0):
+                possibleMoves.append([3, 2 + abs(3-row)])
+            if (board[row][1] == 0):
+                possibleMoves.append([row, 1])
+        else:
+            if (board[row][0] == 0):
+                possibleMoves.append([row, 0])
+            if (board[row][2] == 0):
+                possibleMoves.append([row, 2])
+            if row < 3:
+                if row < 2:
+                    if (board[row+1][1] == 0):
+                        possibleMoves.append([row+1, 1])
+                if row > 0:
+                    if (board[row-1][1] == 0):
+                        possibleMoves.append([row-1, 1])
+            if row > 3:
+                if row < 6:
+                    if (board[row+1][1] == 0):
+                        possibleMoves.append([row+1, 1])
+                if row > 4:
+                    if (board[row-1][1] == 0):
+                        possibleMoves.append([row-1, 1])
+    else:
+        if col < 3:
+            if (board[col][0] == 0):
+                possibleMoves.append([col, 0])
+            if (board[6-col][0] == 0):
+                possibleMoves.append([6-col, 0])
+            if col < 2:
+                if (board[3][col + 1] == 0):
+                    possibleMoves.append([3, col + 1])
+            elif col > 0:
+                if (board[3][col - 1] == 0):
+                    possibleMoves.append([3, col - 1])
+        else:
+            if (board[col][2] == 0):
+                possibleMoves.append([col, 2])
+            if (board[6-col][2] == 0):
+                possibleMoves.append([6-col, 2])
+            if col > 4:
+                if (board[3][col - 1] == 0):
+                    possibleMoves.append([3, col - 1])
+            elif col < 6:
+                if (board[3][col + 1] == 0):
+                    possibleMoves.append([3, col + 1])
+    return possibleMoves
 
 def evaluate(board, type, phase):
     return 0
