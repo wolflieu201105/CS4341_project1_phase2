@@ -1,10 +1,12 @@
 import random
+import time
+from copy import deepcopy
 
 VALID_MOVES = ["a1", "a4", "a7", "b2", "b4", "b6", "c3", "c4", "c5",
                "d1", "d2", "d3", "d5", "d6", "d7", "e3", "e4", "e5",
                "f2", "f4", "f6", "g1", "g4", "g7"]
 
-# Define adjacent positions as per referee code
+# Keep existing NEIGHBORS and MILLS definitions...
 NEIGHBORS = {
     "a1": ["a4", "d1"],
     "a4": ["a1", "a7", "b4"],
@@ -32,7 +34,6 @@ NEIGHBORS = {
     "g7": ["d7", "g4"]
 }
 
-# Define all possible mills as per referee code
 MILLS = [
     # Horizontal mills
     ["a1", "a4", "a7"],
@@ -55,27 +56,222 @@ MILLS = [
 ]
 
 
+class GameState:
+    def __init__(self, board, my_pieces, opponent_pieces, phase, pieces_in_hand):
+        self.board = board
+        self.my_pieces = my_pieces
+        self.opponent_pieces = opponent_pieces
+        self.phase = phase
+        self.pieces_in_hand = pieces_in_hand
+
+
 class LaskerMorrisPlayer:
     def __init__(self):
-        self.board = {}  # position -> color ('X' for blue, 'O' for orange)
+        self.board = {}
         self.my_color = None
         self.opponent_color = None
-        self.my_pieces = []  # List of positions where my pieces are
-        self.opponent_pieces = []  # List of positions where opponent pieces are
-        self.phase = "placing"  # "placing", "moving", or "flying"
+        self.my_pieces = []
+        self.opponent_pieces = []
+        self.phase = "placing"
         self.pieces_in_hand = 10
+        self.max_depth = 4  # Adjust based on performance
+        self.time_limit = 0.95  # 950ms time limit for moves
+        self.start_time = None
 
     def initialize_game(self, color):
         self.my_color = 'X' if color == "blue" else 'O'
         self.opponent_color = 'O' if color == "blue" else 'X'
-        # Initialize empty board
         for pos in VALID_MOVES:
             self.board[pos] = None
 
+    def evaluate_position(self, state, is_terminal=False):
+        """
+        Evaluation function for non-terminal states
+        Returns higher scores for better positions for the current player
+        """
+        if is_terminal:
+            if len(state.my_pieces) < 3:
+                return -1000  # Loss
+            if len(state.opponent_pieces) < 3:
+                return 1000  # Win
+
+        score = 0
+
+        # Piece advantage
+        score += 10 * (len(state.my_pieces) - len(state.opponent_pieces))
+
+        # Mill potential
+        my_mills = self.count_mills(state.board, state.my_pieces, True)
+        opp_mills = self.count_mills(state.board, state.opponent_pieces, False)
+        score += 50 * (my_mills - opp_mills)
+
+        # Mobility
+        my_mobility = self.count_possible_moves(state, True)
+        opp_mobility = self.count_possible_moves(state, False)
+        score += 5 * (my_mobility - opp_mobility)
+
+        # Control of center positions
+        center_positions = ["b4", "d4", "f4", "d2", "d6"]
+        my_center = sum(1 for pos in center_positions if pos in state.my_pieces)
+        opp_center = sum(1 for pos in center_positions if pos in state.opponent_pieces)
+        score += 3 * (my_center - opp_center)
+
+        return score
+
+    def count_mills(self, board, pieces, is_max_player):
+        color = self.my_color if is_max_player else self.opponent_color
+        mill_count = 0
+        for mill in MILLS:
+            if all(pos in pieces and board.get(pos) == color for pos in mill):
+                mill_count += 1
+        return mill_count
+
+    def count_possible_moves(self, state, is_max_player):
+        pieces = state.my_pieces if is_max_player else state.opponent_pieces
+        count = 0
+
+        if state.phase == "placing":
+            return len([pos for pos in VALID_MOVES if state.board.get(pos) is None])
+        elif state.phase == "flying" and len(pieces) <= 3:
+            return len([(p, t) for p in pieces
+                        for t in VALID_MOVES if state.board.get(t) is None])
+        else:
+            return len([(p, t) for p in pieces
+                        for t in NEIGHBORS[p] if state.board.get(t) is None])
+
+    def is_time_up(self):
+        return time.time() - self.start_time > self.time_limit
+
+    def alpha_beta_search(self, state, depth, alpha, beta, is_max_player):
+        if depth == 0 or self.is_time_up():
+            return self.evaluate_position(state), None
+
+        if is_max_player:
+            best_value = float('-inf')
+            best_move = None
+
+            for move in self.get_possible_moves(state, True):
+                new_state = self.apply_move(state, move, True)
+                value, _ = self.alpha_beta_search(new_state, depth - 1, alpha, beta, False)
+
+                if value > best_value:
+                    best_value = value
+                    best_move = move
+
+                alpha = max(alpha, best_value)
+                if beta <= alpha:
+                    break
+
+            return best_value, best_move
+        else:
+            best_value = float('inf')
+            best_move = None
+
+            for move in self.get_possible_moves(state, False):
+                new_state = self.apply_move(state, move, False)
+                value, _ = self.alpha_beta_search(new_state, depth - 1, alpha, beta, True)
+
+                if value < best_value:
+                    best_value = value
+                    best_move = move
+
+                beta = min(beta, best_value)
+                if beta <= alpha:
+                    break
+
+            return best_value, best_move
+
+    def get_possible_moves(self, state, is_max_player):
+        moves = []
+        pieces = state.my_pieces if is_max_player else state.opponent_pieces
+        color = self.my_color if is_max_player else self.opponent_color
+
+        if state.phase == "placing":
+            for pos in VALID_MOVES:
+                if state.board.get(pos) is None:
+                    moves.append(("h", pos))
+        elif state.phase == "flying" and len(pieces) <= 3:
+            for piece in pieces:
+                for target in VALID_MOVES:
+                    if state.board.get(target) is None:
+                        moves.append((piece, target))
+        else:
+            for piece in pieces:
+                for target in NEIGHBORS[piece]:
+                    if state.board.get(target) is None:
+                        moves.append((piece, target))
+
+        return moves
+
+    def apply_move(self, old_state, move, is_max_player):
+        state = GameState(
+            deepcopy(old_state.board),
+            old_state.my_pieces.copy(),
+            old_state.opponent_pieces.copy(),
+            old_state.phase,
+            old_state.pieces_in_hand
+        )
+
+        if move[0] == "h":  # placing phase
+            position = move[1]
+            color = self.my_color if is_max_player else self.opponent_color
+            state.board[position] = color
+            if is_max_player:
+                state.my_pieces.append(position)
+                state.pieces_in_hand -= 1
+            else:
+                state.opponent_pieces.append(position)
+        else:  # moving or flying phase
+            from_pos, to_pos = move
+            color = self.my_color if is_max_player else self.opponent_color
+
+            state.board[from_pos] = None
+            state.board[to_pos] = color
+
+            if is_max_player:
+                state.my_pieces.remove(from_pos)
+                state.my_pieces.append(to_pos)
+            else:
+                state.opponent_pieces.remove(from_pos)
+                state.opponent_pieces.append(to_pos)
+
+        return state
+
+    def make_move(self):
+        """Generate the best move using alpha-beta pruning"""
+        self.start_time = time.time()
+
+        current_state = GameState(
+            self.board.copy(),
+            self.my_pieces.copy(),
+            self.opponent_pieces.copy(),
+            self.phase,
+            self.pieces_in_hand
+        )
+
+        _, best_move = self.alpha_beta_search(
+            current_state,
+            self.max_depth,
+            float('-inf'),
+            float('inf'),
+            True
+        )
+
+        if not best_move:
+            return None
+
+        if best_move[0] == "h":
+            forms_mill = self.check_mill("h", best_move[1])
+            remove_piece = self.get_removable_piece() if forms_mill else "r0"
+            return f"h{1 if self.my_color == 'X' else 2} {best_move[1]} {remove_piece}"
+        else:
+            from_pos, to_pos = best_move
+            forms_mill = self.check_mill(from_pos, to_pos)
+            remove_piece = self.get_removable_piece() if forms_mill else "r0"
+            return f"{from_pos} {to_pos} {remove_piece}"
+
+    # Keep existing methods: check_mill, get_removable_piece, update_game_state, etc.
     def check_mill(self, source, target):
-        """Check if placing/moving a stone to target position forms a mill.
-        Matches referee's mill checking logic."""
-        # Temporarily update board state
         if source in self.board:
             old_source_value = self.board[source]
             self.board[source] = None
@@ -84,7 +280,6 @@ class LaskerMorrisPlayer:
 
         self.board[target] = self.my_color
 
-        # Check for mills containing the target position
         forms_mill = False
         for mill in MILLS:
             if target in mill:
@@ -93,29 +288,13 @@ class LaskerMorrisPlayer:
                     forms_mill = True
                     break
 
-        # Restore board state
         if source in self.board:
             self.board[source] = old_source_value
         self.board[target] = None
 
         return forms_mill
 
-    def get_valid_moves(self):
-        """Get all valid moves based on current game phase"""
-        if self.phase == "placing":
-            return [pos for pos in VALID_MOVES if pos not in self.board or self.board[pos] is None]
-        elif self.phase == "flying":
-            return [(piece, target) for piece in self.my_pieces
-                    for target in VALID_MOVES
-                    if self.board.get(target) is None]
-        else:  # moving phase
-            return [(piece, target) for piece in self.my_pieces
-                    for target in NEIGHBORS[piece]
-                    if self.board.get(target) is None]
-
     def get_removable_piece(self):
-        """Get a random opponent piece that can be removed.
-        Prioritize pieces not in mills unless all pieces are in mills."""
         non_mill_pieces = []
         for pos in self.opponent_pieces:
             in_mill = False
@@ -133,33 +312,10 @@ class LaskerMorrisPlayer:
             return random.choice(self.opponent_pieces)
         return "r0"
 
-    def make_move(self):
-        """Generate and return a valid random move"""
-        if self.phase == "placing":
-            valid_positions = [pos for pos in VALID_MOVES if self.board.get(pos) is None]
-            if not valid_positions:
-                return None
-
-            target = random.choice(valid_positions)
-            forms_mill = self.check_mill("h", target)
-            remove_piece = self.get_removable_piece() if forms_mill else "r0"
-            return f"h{1 if self.my_color == 'X' else 2} {target} {remove_piece}"
-
-        else:  # moving or flying
-            valid_moves = self.get_valid_moves()
-            if not valid_moves:
-                return None
-
-            from_pos, to_pos = random.choice(valid_moves)
-            forms_mill = self.check_mill(from_pos, to_pos)
-            remove_piece = self.get_removable_piece() if forms_mill else "r0"
-            return f"{from_pos} {to_pos} {remove_piece}"
-
     def update_game_state(self, move):
-        """Update internal game state based on a move"""
         parts = move.split()
 
-        if parts[0].startswith('h'):  # placing phase
+        if parts[0].startswith('h'):
             color = 'X' if parts[0] == 'h1' else 'O'
             position = parts[1]
             self.board[position] = color
@@ -168,7 +324,7 @@ class LaskerMorrisPlayer:
                 self.pieces_in_hand -= 1
             else:
                 self.opponent_pieces.append(position)
-        else:  # moving or flying phase
+        else:
             from_pos, to_pos = parts[0], parts[1]
             color = self.board.get(from_pos)
 
@@ -183,7 +339,6 @@ class LaskerMorrisPlayer:
                 self.opponent_pieces.remove(from_pos)
                 self.opponent_pieces.append(to_pos)
 
-        # Handle piece removal
         if parts[2] != "r0":
             remove_pos = parts[2]
             if remove_pos in self.board:
@@ -193,7 +348,6 @@ class LaskerMorrisPlayer:
                 elif remove_pos in self.opponent_pieces:
                     self.opponent_pieces.remove(remove_pos)
 
-        # Update game phase
         if self.pieces_in_hand == 0:
             if len(self.my_pieces) <= 3:
                 self.phase = "flying"
@@ -203,8 +357,6 @@ class LaskerMorrisPlayer:
 
 def main():
     player = LaskerMorrisPlayer()
-
-    # Get color assignment
     color = input().strip()
     player.initialize_game(color)
 
@@ -241,7 +393,6 @@ def main():
 
         except EOFError:
             break
-
 
 if __name__ == "__main__":
     main()
