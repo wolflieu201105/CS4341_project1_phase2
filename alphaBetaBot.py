@@ -77,7 +77,6 @@ class LaskerMorrisPlayer:
         self.max_depth = 4  # Adjust based on performance
         self.time_limit = 0.95  # 950ms time limit for moves
         self.start_time = None
-        self.transposition_table = {}  # Add transposition table
 
     def initialize_game(self, color):
         self.my_color = 'X' if color == "blue" else 'O'
@@ -143,110 +142,44 @@ class LaskerMorrisPlayer:
     def is_time_up(self):
         return time.time() - self.start_time > self.time_limit
 
-    def iterative_deepening_search(self, state):
-        """Iterative deepening search with transposition table."""
-        self.start_time = time.time()
-        best_move = None
-        current_depth = 1
-
-        try:
-            while time.time() - self.start_time < self.time_limit:
-                value, move = self.alpha_beta_search(
-                    state,
-                    current_depth,
-                    float('-inf'),
-                    float('inf'),
-                    True,
-                    True  # Use move ordering
-                )
-                if move:
-                    best_move = move
-                current_depth += 1
-                if value >= 1000:  # Winning move found
-                    break
-        except TimeoutError:
-            pass
-
-        return best_move
-
-    def alpha_beta_search(self, state, depth, alpha, beta, is_max_player, use_move_ordering=True):
-        """Alpha-beta pruning with heuristics."""
-        if self.is_time_up():
-            raise TimeoutError
-
-        state_hash = self.hash_state(state)
-        if state_hash in self.transposition_table:
-            stored_depth, stored_value, stored_move = self.transposition_table[state_hash]
-            if stored_depth >= depth:
-                return stored_value, stored_move
-
-        if depth == 0:
+    def alpha_beta_search(self, state, depth, alpha, beta, is_max_player):
+        if depth == 0 or self.is_time_up():
             return self.evaluate_position(state), None
 
-        possible_moves = self.get_possible_moves(state, is_max_player)
-        if not possible_moves:
-            return -1000 if is_max_player else 1000, None
+        if is_max_player:
+            best_value = float('-inf')
+            best_move = None
 
-        if use_move_ordering:
-            possible_moves = self.order_moves(state, possible_moves, is_max_player)
+            for move in self.get_possible_moves(state, True):
+                new_state = self.apply_move(state, move, True)
+                value, _ = self.alpha_beta_search(new_state, depth - 1, alpha, beta, False)
 
-        best_value, best_move = (float('-inf'), None) if is_max_player else (float('inf'), None)
-
-        for move in possible_moves:
-            new_state = self.apply_move(state, move, is_max_player)
-            value, _ = self.alpha_beta_search(new_state, depth - 1, alpha, beta, not is_max_player,
-                                              use_move_ordering)
-
-            if is_max_player:
                 if value > best_value:
-                    best_value, best_move = value, move
+                    best_value = value
+                    best_move = move
+
                 alpha = max(alpha, best_value)
-            else:
+                if beta <= alpha:
+                    break
+
+            return best_value, best_move
+        else:
+            best_value = float('inf')
+            best_move = None
+
+            for move in self.get_possible_moves(state, False):
+                new_state = self.apply_move(state, move, False)
+                value, _ = self.alpha_beta_search(new_state, depth - 1, alpha, beta, True)
+
                 if value < best_value:
-                    best_value, best_move = value, move
+                    best_value = value
+                    best_move = move
+
                 beta = min(beta, best_value)
+                if beta <= alpha:
+                    break
 
-            if beta <= alpha:
-                break  # Prune
-
-        self.transposition_table[state_hash] = (depth, best_value, best_move)
-        return best_value, best_move
-    def order_moves(self, state, moves, is_max_player):
-        """Order moves based on heuristics for better pruning"""
-        move_scores = []
-
-        for move in moves:
-            score = 0
-
-            # Prioritize moves that form mills
-            if self.check_mill(move[0] if move[0] != "h" else "h", move[1]):
-                score += 100
-
-            # Prioritize moves to center positions
-            if move[1] in ["b4", "d4", "f4", "d2", "d6"]:
-                score += 50
-
-            # Prioritize moves that block opponent mills
-            new_state = self.apply_move(state, move, is_max_player)
-            opponent_mills = self.count_mills(new_state.board,
-                                              new_state.opponent_pieces if is_max_player else new_state.my_pieces,
-                                              not is_max_player)
-            score -= opponent_mills * 30
-
-            move_scores.append((score, move))
-
-        # Sort moves by score in descending order
-        move_scores.sort(reverse=True)
-        return [move for _, move in move_scores]
-
-    def hash_state(self, state):
-        """Create a hash of the current state for the transposition table"""
-        board_str = ''.join(str(state.board.get(pos, 'E')) for pos in sorted(VALID_MOVES))
-        return hash((board_str,
-                     tuple(sorted(state.my_pieces)),
-                     tuple(sorted(state.opponent_pieces)),
-                     state.phase,
-                     state.pieces_in_hand))
+            return best_value, best_move
 
     def get_possible_moves(self, state, is_max_player):
         moves = []
@@ -305,7 +238,9 @@ class LaskerMorrisPlayer:
         return state
 
     def make_move(self):
-        """Generate the best move with alpha-beta pruning and iterative deepening."""
+        """Generate the best move using alpha-beta pruning"""
+        self.start_time = time.time()
+
         current_state = GameState(
             self.board.copy(),
             self.my_pieces.copy(),
@@ -313,18 +248,26 @@ class LaskerMorrisPlayer:
             self.phase,
             self.pieces_in_hand
         )
-        best_move = self.iterative_deepening_search(current_state)
+
+        _, best_move = self.alpha_beta_search(
+            current_state,
+            self.max_depth,
+            float('-inf'),
+            float('inf'),
+            True
+        )
 
         if not best_move:
             return None
 
         if best_move[0] == "h":
-            remove_piece = self.get_removable_piece() if self.check_mill("h",
-                                                                         best_move[1]) else "r0"
+            forms_mill = self.check_mill("h", best_move[1])
+            remove_piece = self.get_removable_piece() if forms_mill else "r0"
             return f"h{1 if self.my_color == 'X' else 2} {best_move[1]} {remove_piece}"
         else:
             from_pos, to_pos = best_move
-            remove_piece = self.get_removable_piece() if self.check_mill(from_pos, to_pos) else "r0"
+            forms_mill = self.check_mill(from_pos, to_pos)
+            remove_piece = self.get_removable_piece() if forms_mill else "r0"
             return f"{from_pos} {to_pos} {remove_piece}"
 
     # Keep existing methods: check_mill, get_removable_piece, update_game_state, etc.
