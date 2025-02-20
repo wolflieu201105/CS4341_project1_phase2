@@ -235,92 +235,92 @@ class LaskerMorrisPlayer:
             else:
                 self.phase = "moving"
 
-    def minimax(board, depth, is_maximizing, my_color, opponent_color, alpha, beta):
-        """
-        Minimax function with alpha-beta pruning to evaluate the best move.
+    # def minimax(board, depth, is_maximizing, my_color, opponent_color, alpha, beta):
+    #     """
+    #     Minimax function with alpha-beta pruning to evaluate the best move.
 
-        :param board: Dictionary representing the board state {position: 'X' or 'O' or None}.
-        :param depth: Current depth in the minimax search tree.
-        :param is_maximizing: Boolean indicating whether we are maximizing or minimizing.
-        :param my_color: The color of the current player ('X' for blue, 'O' for orange).
-        :param opponent_color: The color of the opponent.
-        :param alpha: Alpha value for pruning.
-        :param beta: Beta value for pruning.
-        :return: The best score for the given board configuration.
-        """
-        if depth == 0 or is_terminal_state(board, my_color, opponent_color):
-            return evaluate_board(board, my_color, opponent_color)
+    #     :param board: Dictionary representing the board state {position: 'X' or 'O' or None}.
+    #     :param depth: Current depth in the minimax search tree.
+    #     :param is_maximizing: Boolean indicating whether we are maximizing or minimizing.
+    #     :param my_color: The color of the current player ('X' for blue, 'O' for orange).
+    #     :param opponent_color: The color of the opponent.
+    #     :param alpha: Alpha value for pruning.
+    #     :param beta: Beta value for pruning.
+    #     :return: The best score for the given board configuration.
+    #     """
+    #     if depth == 0 or is_terminal_state(board, my_color, opponent_color):
+    #         return evaluate_board(board, my_color, opponent_color)
 
-        valid_moves = get_valid_moves(board, my_color if is_maximizing else opponent_color)
+    #     valid_moves = get_valid_moves(board, my_color if is_maximizing else opponent_color)
 
-        if is_maximizing:
-            max_eval = float('-inf')
-            for move in valid_moves:
-                new_board = simulate_move(board, move, my_color)
-                eval_score = minimax(new_board, depth - 1, False, my_color, opponent_color, alpha, beta)
-                max_eval = max(max_eval, eval_score)
-                alpha = max(alpha, eval_score)
-                if beta <= alpha:
-                    break  # Beta cut-off
-            return max_eval
-        else:
-            min_eval = float('inf')
-            for move in valid_moves:
-                new_board = simulate_move(board, move, opponent_color)
-                eval_score = minimax(new_board, depth - 1, True, my_color, opponent_color, alpha, beta)
-                min_eval = min(min_eval, eval_score)
-                beta = min(beta, eval_score)
-                if beta <= alpha:
-                    break  # Alpha cut-off
-            return min_eval
+    #     if is_maximizing:
+    #         max_eval = float('-inf')
+    #         for move in valid_moves:
+    #             new_board = simulate_move(board, move, my_color)
+    #             eval_score = minimax(new_board, depth - 1, False, my_color, opponent_color, alpha, beta)
+    #             max_eval = max(max_eval, eval_score)
+    #             alpha = max(alpha, eval_score)
+    #             if beta <= alpha:
+    #                 break  # Beta cut-off
+    #         return max_eval
+    #     else:
+    #         min_eval = float('inf')
+    #         for move in valid_moves:
+    #             new_board = simulate_move(board, move, opponent_color)
+    #             eval_score = minimax(new_board, depth - 1, True, my_color, opponent_color, alpha, beta)
+    #             min_eval = min(min_eval, eval_score)
+    #             beta = min(beta, eval_score)
+    #             if beta <= alpha:
+    #                 break  # Alpha cut-off
+    #         return min_eval
         
-    def is_terminal_state(board, my_color, opponent_color):
-        """
-        Checks if the game has reached a terminal state (win, loss, draw).
+    # def is_terminal_state(board, my_color, opponent_color):
+    #     """
+    #     Checks if the game has reached a terminal state (win, loss, draw).
 
-        :param board: The current board state.
-        :param my_color: The current player's color.
-        :param opponent_color: The opponent's color.
-        :return: True if the game is over, False otherwise.
-        """
-        my_pieces = sum(1 for pos in board if board[pos] == my_color)
-        opponent_pieces = sum(1 for pos in board if board[pos] == opponent_color)
+    #     :param board: The current board state.
+    #     :param my_color: The current player's color.
+    #     :param opponent_color: The opponent's color.
+    #     :return: True if the game is over, False otherwise.
+    #     """
+    #     my_pieces = sum(1 for pos in board if board[pos] == my_color)
+    #     opponent_pieces = sum(1 for pos in board if board[pos] == opponent_color)
 
-        if my_pieces < 3 or opponent_pieces < 3:
-            return True  # A player has lost
-        if not get_valid_moves(board, opponent_color):
-            return True  # Opponent is immobilized (win for current player)
-        return False
+    #     if my_pieces < 3 or opponent_pieces < 3:
+    #         return True  # A player has lost
+    #     if not get_valid_moves(board, opponent_color):
+    #         return True  # Opponent is immobilized (win for current player)
+    #     return False
 
-    def get_valid_moves(board, player_color):
-        """
-        Returns a list of valid moves for the given player.
+    # def get_valid_moves(board, player_color):
+    #     """
+    #     Returns a list of valid moves for the given player.
 
-        :param board: The current board state.
-        :param player_color: The color of the player to get moves for.
-        :return: List of valid moves.
-        """
-        moves = []
-        for piece in [pos for pos in board if board[pos] == player_color]:
-            for neighbor in NEIGHBORS.get(piece, []):
-                if board.get(neighbor) is None:
-                    moves.append((piece, neighbor))  # Move from piece to neighbor
-        return moves
+    #     :param board: The current board state.
+    #     :param player_color: The color of the player to get moves for.
+    #     :return: List of valid moves.
+    #     """
+    #     moves = []
+    #     for piece in [pos for pos in board if board[pos] == player_color]:
+    #         for neighbor in NEIGHBORS.get(piece, []):
+    #             if board.get(neighbor) is None:
+    #                 moves.append((piece, neighbor))  # Move from piece to neighbor
+    #     return moves
 
-    def simulate_move(board, move, player_color):
-        """
-        Simulates a move and returns a new board state.
+    # def simulate_move(board, move, player_color):
+    #     """
+    #     Simulates a move and returns a new board state.
 
-        :param board: The current board state.
-        :param move: The move to simulate (tuple: (from_pos, to_pos)).
-        :param player_color: The color of the player making the move.
-        :return: A new board dictionary after the move.
-        """
-        new_board = board.copy()
-        from_pos, to_pos = move
-        new_board[from_pos] = None
-        new_board[to_pos] = player_color
-        return new_board
+    #     :param board: The current board state.
+    #     :param move: The move to simulate (tuple: (from_pos, to_pos)).
+    #     :param player_color: The color of the player making the move.
+    #     :return: A new board dictionary after the move.
+    #     """
+    #     new_board = board.copy()
+    #     from_pos, to_pos = move
+    #     new_board[from_pos] = None
+    #     new_board[to_pos] = player_color
+    #     return new_board
 
 
 def main():
