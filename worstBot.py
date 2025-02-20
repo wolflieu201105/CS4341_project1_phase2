@@ -97,10 +97,8 @@ def checkForMill(board, row, col, type):
                 return True
     return False
 
-def checkWinByNumber(board, type, phase):
+def checkWinByNumber(board, type):
     type = -type
-    if phase != 3:
-        return 0
     count = 0
     for i in range(7):
         for j in range(3):
@@ -113,15 +111,25 @@ def checkWinByNumber(board, type, phase):
         return True
     return False
 
-def checkEmptySpaces(board):
+def checkSpacesState(board, type):
     possibleMoves = []
     for i in range(7):
         for j in range(3):
-            if (board[i][j] == 0):
+            if (board[i][j] == type):
                 possibleMoves.append([i, j])
     for i in range(3):
-        if (board[3][i] == 0):
+        if (board[3][i + 3] == type):
             possibleMoves.append([3, i])
+    return possibleMoves
+
+def checkRemovableSpaces(board, type):
+    possibleMoves = checkSpacesState(board, type)
+    for i in range(len(possibleMoves)):
+        if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], type)):
+            possibleMoves.pop(i)
+            i -= 1
+    if (len(possibleMoves) == 0):
+        possibleMoves = checkSpacesState(board, type)
     return possibleMoves
 
 def checkPossibleMoves(board, row, col):
@@ -181,20 +189,12 @@ def checkPossibleMoves(board, row, col):
                     possibleMoves.append([3, col + 1])
     return possibleMoves
 
-def evaluate(board, phase, turn):
-    blue, orange = 0
-    for i in range(7):
-        for j in range(3):
-            if (board[i][j] == 1):
-                blue += 1
-            elif (board[i][j] == -1):
-                orange += 1
-    for i in range(3):
-        if (board[3][i] == 1):
-            blue += 1
-        elif (board[3][i] == -1):
-            orange += 1
-    if phase == 0:
+def evaluate(board, turn):
+    blue = checkSpacesState(board, 1)
+    orange = checkSpacesState(board, 1)
+    blue = len(blue)
+    orange = len(orange)
+    if turn < 20:
         if turn%2 == 0:
             return (blue - orange)*100
         else:
@@ -202,20 +202,38 @@ def evaluate(board, phase, turn):
     else:
         return (blue - orange)*100
     
-def maxPruning(board, depth, alpha, beta, type, phase, turn, lastChanged):
-    if (checkWinByNumber(board, -1, phase)):
-        return -1000
+def maxPruning(board, depth, alpha, beta, type, turn, lastChanged):
+    if turn >= 20:
+        if (checkWinByNumber(board, -1)):
+            return -1000
     if (depth == 0):
-        return evaluate(board, type, phase)
+        return evaluate(board, turn)
 
-def minPruning(board, depth, alpha, beta, type, phase, turn, lastChanged):
-    if (checkWinByNumber(board, 1, phase)):
-        return 1000
+def minPruning(board, depth, alpha, beta, type, turn, lastChanged):
+    if turn >= 20:
+        if (checkWinByNumber(board, 1)):
+            return 1000
     if (depth == 0):
-        return evaluate(board, type, phase)
+        return evaluate(board, turn)
+    if (turn < 20):
+        possibleMoves = checkSpacesState(board, 0)
 
-def makeMove(board, type, phase, turn, lastChanged):
-    return
+
+def makeMove(board, type, turn, lastChanged):
+    if turn >= 20:
+        if (checkWinByNumber(board, -1)):
+            return "I lost"
+    if (turn < 20):
+        possibleMoves = checkSpacesState(board, 0)
+        for i in range(len(possibleMoves)):
+            for j in range(len(possibleMoves)):
+                if (i != j):
+                    board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], type)
+                    if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], type)):
+                        possibleRemoves = checkRemovableSpaces(board, -type)
+                        for k in range(len(possibleRemoves)):
+                            board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
+                            
 
 def main():
     board = [[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0, 0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0]]
@@ -223,7 +241,6 @@ def main():
     blue = True
     myTurn = False
     turns = 0
-    phase = 0
     game_input = input().strip()
     if game_input == "blue":
         myTurn = True
@@ -248,8 +265,6 @@ def main():
                 # modify the board
                 myTurn = True
                 turns += 1
-            if turns == 20:
-                phase = 1
         except EOFError:
             break
 
