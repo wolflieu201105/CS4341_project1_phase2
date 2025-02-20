@@ -93,7 +93,7 @@ def checkForMill(board, row, col, type):
                     break
                 if (i == 2):
                     return True
-            if (board[col][2] == type and board[6 - col][2] == type):
+            if (board[col + 1][2] == type and board[6 - col - 1][2] == type):
                 return True
     return False
 
@@ -119,15 +119,17 @@ def checkSpacesState(board, type):
                 possibleMoves.append([i, j])
     for i in range(3):
         if (board[3][i + 3] == type):
-            possibleMoves.append([3, i])
+            possibleMoves.append([3, i + 3])
     return possibleMoves
 
 def checkRemovableSpaces(board, type):
     possibleMoves = checkSpacesState(board, type)
-    for i in range(len(possibleMoves)):
+    i = 0
+    while i < len(possibleMoves):
         if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], type)):
             possibleMoves.pop(i)
             i -= 1
+        i += 1
     if (len(possibleMoves) == 0):
         possibleMoves = checkSpacesState(board, type)
     return possibleMoves
@@ -177,11 +179,11 @@ def checkPossibleMoves(board, row, col):
                 if (board[3][col - 1] == 0):
                     possibleMoves.append([3, col - 1])
         else:
-            if (board[col][2] == 0):
+            if (board[col + 1][2] == 0):
                 possibleMoves.append([col, 2])
-            if (board[6-col][2] == 0):
+            if (board[6 - col - 1][2] == 0):
                 possibleMoves.append([6-col, 2])
-            if col > 4:
+            if col > 3:
                 if (board[3][col - 1] == 0):
                     possibleMoves.append([3, col - 1])
             elif col < 6:
@@ -191,7 +193,7 @@ def checkPossibleMoves(board, row, col):
 
 def evaluate(board, turn):
     blue = checkSpacesState(board, 1)
-    orange = checkSpacesState(board, 1)
+    orange = checkSpacesState(board, -1)
     blue = len(blue)
     orange = len(orange)
     if turn < 20:
@@ -203,181 +205,195 @@ def evaluate(board, turn):
         return (blue - orange)*100
     
 def maxPruning(board, depth, alpha, beta, turn, lastChanged):
-    if turn >= 20:
+    if turn > 20:
         if (checkWinByNumber(board, -1)):
             return -1000
     if turn - lastChanged == 20:
         return 0
     if (depth == 0):
         return evaluate(board, turn)
-    if (turn < 20):
+    if (turn <= 20):
         possibleMoves = checkSpacesState(board, 0)
         for i in range(len(possibleMoves)):
-            for j in range(len(possibleMoves)):
-                if (i != j):
-                    board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 1)
-                    if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], 1)):
-                        possibleRemoves = checkRemovableSpaces(board, -1)
-                        for k in range(len(possibleRemoves)):
-                            board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
-                            value = minPruning(board, 20, alpha, beta, turn + 1, turn + 1)
-                            if (value > beta):
-                                beta = value
-                            board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], -1)
-                    else:
-                        value = minPruning(board, 20, alpha, beta, turn + 1, turn + 1)
+            board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 1)
+            if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], 1)):
+                possibleRemoves = checkRemovableSpaces(board, -1)
+                for k in range(len(possibleRemoves)):
+                    board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
+                    value = minPruning(board, depth - 1, alpha, beta, turn + 1, turn + 1)
+                    if (value > beta):
+                        beta = value
+                    board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], -1)
+            else:
+                value = minPruning(board, depth - 1, alpha, beta, turn + 1, turn + 1)
+                if (value > beta):
+                    beta = value
+            board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 0)
+            if alpha <= beta:
+                return alpha
+    elif (turn > 20):
+        ChoosablePieces = checkSpacesState(board, 1)
+        possibleMoves = []
+        for l in range(len(ChoosablePieces)):
+            if len(ChoosablePieces) == 3:
+                possibleMoves = checkSpacesState(board, 0)
+            else:
+                possibleMoves = checkPossibleMoves(board, ChoosablePieces[l][0], ChoosablePieces[l][1])
+            board = changeBoardWithIndex(board, ChoosablePieces[l][0], ChoosablePieces[l][1], 0)
+            for i in range(len(possibleMoves)):
+                board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 1)
+                if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], 1)):
+                    possibleRemoves = checkRemovableSpaces(board, -1)
+                    for k in range(len(possibleRemoves)):
+                        board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
+                        value = minPruning(board, depth - 1, alpha, beta, turn + 1, turn + 1)
                         if (value > beta):
                             beta = value
-    elif (turn >= 20):
-        ChoosablePieces = checkSpacesState(board, 1)
-        if len(ChoosablePieces) == 3:
-            possibleMoves = checkSpacesState(board, 0)
-        else:
-            possibleMoves = checkPossibleMoves(board, ChoosablePieces[l][0], ChoosablePieces[l][1])
-        for l in range(len(ChoosablePieces)):
-            board = changeBoardWithIndex(board, ChoosablePieces[l][0], ChoosablePieces[l][2], 0)
-            for i in range(len(possibleMoves)):
-                for j in range(len(possibleMoves)):
-                    if (i != j):
-                        board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 1)
-                        if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], 1)):
-                            possibleRemoves = checkRemovableSpaces(board, -1)
-                            for k in range(len(possibleRemoves)):
-                                board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
-                                value = minPruning(board, 20, alpha, beta, turn + 1, turn + 1)
-                            if (value > beta):
-                                beta = value
-                            board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], -1)
-                        else:
-                            value = minPruning(board, 20, alpha, beta, turn + 1, lastChanged)
-                            if (value > beta):
-                                beta = value
+                        board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], -1)
+                else:
+                    value = minPruning(board, depth - 1, alpha, beta, turn + 1, lastChanged)
+                    if (value > beta):
+                        beta = value
+                board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 0)
+                if alpha <= beta:
+                    board = changeBoardWithIndex(board, ChoosablePieces[l][0], ChoosablePieces[l][1], 1)
+                    return alpha
+            board = changeBoardWithIndex(board, ChoosablePieces[l][0], ChoosablePieces[l][1], 1)
     return beta
 
 def minPruning(board, depth, alpha, beta, turn, lastChanged):
-    if turn >= 20:
+    if turn > 20:
         if (checkWinByNumber(board, 1)):
             return 1000
     if turn - lastChanged == 20:
         return 0
     if (depth == 0):
         return evaluate(board, turn)
-    if (turn < 20):
+    if (turn <= 20):
         possibleMoves = checkSpacesState(board, 0)
         for i in range(len(possibleMoves)):
-            for j in range(len(possibleMoves)):
-                if (i != j):
-                    board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], -1)
-                    if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], -1)):
-                        possibleRemoves = checkRemovableSpaces(board, 1)
-                        for k in range(len(possibleRemoves)):
-                            board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
-                            value = minPruning(board, 20, alpha, beta, turn + 1, turn + 1)
-                            if (value < alpha):
-                                alpha = value
-                            board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 1)
-                    else:
-                        value = maxPruning(board, depth - 1, alpha, beta, turn + 1, turn + 1)
+            board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], -1)
+            if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], -1)):
+                possibleRemoves = checkRemovableSpaces(board, 1)
+                for k in range(len(possibleRemoves)):
+                    board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
+                    value = minPruning(board, depth - 1, alpha, beta, turn + 1, turn + 1)
+                    if (value < alpha):
+                        alpha = value
+                    board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 1)
+            else:
+                value = maxPruning(board, depth - 1, alpha, beta, turn + 1, turn + 1)
+                if (value < alpha):
+                    alpha = value
+            board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 0)
+            if alpha <= beta:
+                return alpha
+            
+    elif (turn > 20):
+        ChoosablePieces = checkSpacesState(board, -1)
+        possibleMoves = []
+        for l in range(len(ChoosablePieces)):
+            if len(ChoosablePieces) == 3:
+                possibleMoves = checkSpacesState(board, 0)
+            else:
+                possibleMoves = checkPossibleMoves(board, ChoosablePieces[l][0], ChoosablePieces[l][1])
+            board = changeBoardWithIndex(board, ChoosablePieces[l][0], ChoosablePieces[l][1], 0)
+            for i in range(len(possibleMoves)):
+                board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], -1)
+                if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], -1)):
+                    possibleRemoves = checkRemovableSpaces(board, 1)
+                    for k in range(len(possibleRemoves)):
+                        board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
+                        value = minPruning(board, depth - 1, alpha, beta, turn + 1, turn + 1)
                         if (value < alpha):
                             alpha = value
-    elif (turn >= 20):
-        ChoosablePieces = checkSpacesState(board, -1)
-        if len(ChoosablePieces) == 3:
-            possibleMoves = checkSpacesState(board, 0)
-        else:
-            possibleMoves = checkPossibleMoves(board, ChoosablePieces[l][0], ChoosablePieces[l][1])
-        for l in range(len(ChoosablePieces)):
-            board = changeBoardWithIndex(board, ChoosablePieces[l][0], ChoosablePieces[l][2], 0)
-            for i in range(len(possibleMoves)):
-                for j in range(len(possibleMoves)):
-                    if (i != j):
-                        board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], -1)
-                        if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], -1)):
-                            possibleRemoves = checkRemovableSpaces(board, 1)
-                            for k in range(len(possibleRemoves)):
-                                board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
-                                value = minPruning(board, 20, alpha, beta, turn + 1, turn + 1)
-                            if (value < alpha):
-                                alpha = value
-                            board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 1)
-                        else:
-                            value = maxPruning(board, 20, alpha, beta, turn + 1, lastChanged)
-                            if (value < alpha):
-                                alpha = value
+                        board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 1)
+                else:
+                    value = maxPruning(board, depth - 1, alpha, beta, turn + 1, lastChanged)
+                    if (value < alpha):
+                        alpha = value
+                board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 0)
+                if alpha <= beta:
+                    board = changeBoardWithIndex(board, ChoosablePieces[l][0], ChoosablePieces[l][1], -1)
+                    return alpha
+            board = changeBoardWithIndex(board, ChoosablePieces[l][0], ChoosablePieces[l][1], -1)
     return alpha
 
 
 def makeMove(board, turn, lastChanged, isBlue):
-    alpha = 1000
-    beta = -1000
-    if turn >= 20:
+    depth = 5 if turn < 20 else 6 if turn < 40 else 7
+    alpha = 2000
+    beta = -2000
+    if turn > 20:
         if (checkWinByNumber(board, -1)):
             return "I lost"
     if turn - lastChanged == 20:
         return "draw"
-    firstMove = "h2"
+    firstMove = ""
     secondMove = ""
     thirdMove = "r0"
-    if (isBlue):
-        firstMove = "h1"
-    if (turn < 20):
+    if (turn <= 20):
+        firstMove = "h2"
+        if (isBlue):
+            firstMove = "h1"
         possibleMoves = checkSpacesState(board, 0)
         for i in range(len(possibleMoves)):
-            for j in range(len(possibleMoves)):
-                if (i != j):
-                    board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 1)
-                    if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], 1)):
-                        possibleRemoves = checkRemovableSpaces(board, -1)
-                        for k in range(len(possibleRemoves)):
-                            board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
-                            value = minPruning(board, 20, alpha, beta, turn + 1, turn + 1)
-                            if (value > beta):
-                                beta = value
-                                secondMove = indexToMove(possibleMoves[i][0], possibleMoves[i][1])
-                                thirdMove = indexToMove(possibleRemoves[k][0], possibleRemoves[k][1])
-                            board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], -1)
-                    else:
-                        value = minPruning(board, 20, alpha, beta, turn + 1, turn + 1)
+            board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 1)
+            if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], 1)):
+                possibleRemoves = checkRemovableSpaces(board, -1)
+                for k in range(len(possibleRemoves)):
+                    board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
+                    value = minPruning(board, depth, alpha, beta, turn + 1, turn + 1)
+                    if (value > beta):
+                        beta = value
+                        secondMove = indexToMove(possibleMoves[i][0], possibleMoves[i][1])
+                        thirdMove = indexToMove(possibleRemoves[k][0], possibleRemoves[k][1])
+                    board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], -1)
+            else:
+                value = minPruning(board, depth, alpha, beta, turn + 1, turn + 1)
+                if (value > beta):
+                    beta = value
+                    secondMove = indexToMove(possibleMoves[i][0], possibleMoves[i][1])
+                    thirdMove = "r0"
+            board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 0)
+    elif (turn > 20):
+        ChoosablePieces = checkSpacesState(board, 1)
+        possibleMoves = []
+        for l in range(len(ChoosablePieces)):
+            if len(ChoosablePieces) == 3:
+                possibleMoves = checkSpacesState(board, 0)
+            else:
+                possibleMoves = checkPossibleMoves(board, ChoosablePieces[l][0], ChoosablePieces[l][1])
+            if (len(possibleMoves) == 0):
+                continue
+            board = changeBoardWithIndex(board, ChoosablePieces[l][0], ChoosablePieces[l][1], 0)
+            for i in range(len(possibleMoves)):
+                board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 1)
+                if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], 1)):
+                    possibleRemoves = checkRemovableSpaces(board, -1)
+                    for k in range(len(possibleRemoves)):
+                        board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
+                        value = minPruning(board, depth, alpha, beta, turn + 1, turn + 1)
                         if (value > beta):
                             beta = value
+                            firstMove = indexToMove(ChoosablePieces[l][0], ChoosablePieces[l][1])
                             secondMove = indexToMove(possibleMoves[i][0], possibleMoves[i][1])
-                            thirdMove = "r0"
-    elif (turn >= 20):
-        ChoosablePieces = checkSpacesState(board, 1)
-        if len(ChoosablePieces) == 3:
-            possibleMoves = checkSpacesState(board, 0)
-        else:
-            possibleMoves = checkPossibleMoves(board, ChoosablePieces[l][0], ChoosablePieces[l][1])
-        for l in range(len(ChoosablePieces)):
-            board = changeBoardWithIndex(board, ChoosablePieces[l][0], ChoosablePieces[l][2], 0)
-            for i in range(len(possibleMoves)):
-                for j in range(len(possibleMoves)):
-                    if (i != j):
-                        board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 1)
-                        if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], 1)):
-                            possibleRemoves = checkRemovableSpaces(board, -1)
-                            for k in range(len(possibleRemoves)):
-                                board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
-                                value = minPruning(board, 20, alpha, beta, turn + 1, turn + 1)
-                            if (value > beta):
-                                beta = value
-                                firstMove = indexToMove(possibleMoves[l][0], possibleMoves[l][1])
-                                secondMove = indexToMove(possibleMoves[i][0], possibleMoves[i][1])
-                                thirdMove = indexToMove(possibleRemoves[k][0], possibleRemoves[k][1])
-                            board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], -1)
-                        else:
-                            value = minPruning(board, 20, alpha, beta, turn + 1, lastChanged)
-                            if (value > beta):
-                                beta = value
-                                firstMove = indexToMove(possibleMoves[l][0], possibleMoves[l][1])
-                                secondMove = indexToMove(possibleMoves[i][0], possibleMoves[i][1])
-                                thirdMove = "r0"
+                            thirdMove = indexToMove(possibleRemoves[k][0], possibleRemoves[k][1])
+                        board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], -1)
+                else:
+                    value = minPruning(board, depth, alpha, beta, turn + 1, lastChanged)
+                    if (value > beta):
+                        beta = value
+                        firstMove = indexToMove(ChoosablePieces[l][0], ChoosablePieces[l][1])
+                        secondMove = indexToMove(possibleMoves[i][0], possibleMoves[i][1])
+                        thirdMove = "r0"
+                board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 0)
+            board = changeBoardWithIndex(board, ChoosablePieces[l][0], ChoosablePieces[l][1], 1)
     return firstMove + " " + secondMove + " " + thirdMove
 
 
 def main():
     board = [[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0, 0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0]]
-    printBoard(board)
     blue = True
     myTurn = False
     turns = 0
@@ -385,32 +401,29 @@ def main():
     game_input = input().strip()
     if game_input == "blue":
         myTurn = True
-    elif game_input == "orange":
-        myTurn = False
-        blue = False
     else:
-        print("Invalid input")
-        sys.exit(1)
+        blue = False
     while True:
         try:
-            move = ""
+            printBoard(board)
             if (myTurn):
+                turns += 1
                 move = makeMove(board, turns, lastChanged, blue)
                 print(move, flush = True)
                 board = changeBoard(board, move, 1)
                 myTurn = False
-                turns += 1
+                if turns >= 20:
+                    if move[7] != "0":
+                        lastChanged = turns
             
             else:
                 move = input().strip()
-                board = changeBoard(board, move, 1)
-                # modify the board
+                board = changeBoard(board, move, -1)
                 myTurn = True
                 turns += 1
-            
-            if turns >= 20:
-                if move[7] != "0":
-                    lastChanged = turns
+                if turns >= 20:
+                    if move[7] != "0":
+                        lastChanged = turns
         except EOFError:
             break
 
