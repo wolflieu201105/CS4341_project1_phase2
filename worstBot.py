@@ -180,9 +180,9 @@ def checkPossibleMoves(board, row, col):
                     possibleMoves.append([3, col - 1])
         else:
             if (board[col + 1][2] == 0):
-                possibleMoves.append([col, 2])
+                possibleMoves.append([col+1, 2])
             if (board[6 - col - 1][2] == 0):
-                possibleMoves.append([6-col, 2])
+                possibleMoves.append([6-col-1, 2])
             if col > 3:
                 if (board[3][col - 1] == 0):
                     possibleMoves.append([3, col - 1])
@@ -192,17 +192,13 @@ def checkPossibleMoves(board, row, col):
     return possibleMoves
 
 def evaluate(board, turn):
-    blue = checkSpacesState(board, 1)
-    orange = checkSpacesState(board, -1)
-    blue = len(blue)
-    orange = len(orange)
-    if turn < 20:
-        if turn%2 == 0:
-            return (blue - orange)*100
-        else:
-            return (blue - orange - 1)*100
-    else:
-        return (blue - orange)*100
+    blue_moves = len(checkSpacesState(board, 1))
+    orange_moves = len(checkSpacesState(board, -1))
+    blue_mills = sum([checkForMill(board, r, c, 1) for r, c in checkSpacesState(board, 1)])
+    orange_mills = sum([checkForMill(board, r, c, -1) for r, c in checkSpacesState(board, -1)])
+    
+    return (blue_moves - orange_moves) * 100 + (blue_mills - orange_mills) * 200
+
     
 def maxPruning(board, depth, alpha, beta, turn, lastChanged):
     if turn > 20:
@@ -321,7 +317,7 @@ def minPruning(board, depth, alpha, beta, turn, lastChanged):
 
 
 def makeMove(board, turn, lastChanged, isBlue):
-    depth = 5 if turn < 20 else 6 if turn < 40 else 7
+    depth = 5 if turn < 20 else 7 if turn < 40 else 9
     alpha = 2000
     beta = -2000
     if turn > 20:
@@ -405,7 +401,6 @@ def main():
         blue = False
     while True:
         try:
-            printBoard(board)
             if (myTurn):
                 turns += 1
                 move = makeMove(board, turns, lastChanged, blue)
