@@ -202,14 +202,14 @@ def evaluate(board, turn):
     else:
         return (blue - orange)*100
     
-def maxPruning(board, depth, alpha, beta, type, turn, lastChanged):
+def maxPruning(board, depth, alpha, beta, turn, lastChanged):
     if turn >= 20:
         if (checkWinByNumber(board, -1)):
             return -1000
     if (depth == 0):
         return evaluate(board, turn)
 
-def minPruning(board, depth, alpha, beta, type, turn, lastChanged):
+def minPruning(board, depth, alpha, beta, turn, lastChanged):
     if turn >= 20:
         if (checkWinByNumber(board, 1)):
             return 1000
@@ -219,7 +219,14 @@ def minPruning(board, depth, alpha, beta, type, turn, lastChanged):
         possibleMoves = checkSpacesState(board, 0)
 
 
-def makeMove(board, type, turn, lastChanged):
+def makeMove(board, type, turn, lastChanged, isBlue):
+    alpha = 1000
+    beta = -1000
+    firstMove = "h2"
+    secondMove = ""
+    thirdMove = "r0"
+    if (isBlue):
+        firstMove = "h1"
     if turn >= 20:
         if (checkWinByNumber(board, -1)):
             return "I lost"
@@ -233,7 +240,12 @@ def makeMove(board, type, turn, lastChanged):
                         possibleRemoves = checkRemovableSpaces(board, -type)
                         for k in range(len(possibleRemoves)):
                             board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
-                            
+                            value = minPruning(board, 20, alpha, beta, turn + 1, turn + 1)
+                            if (value > beta):
+                                beta = value
+
+                            board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], -1)
+
 
 def main():
     board = [[0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0, 0, 0, 0],[0, 0, 0],[0, 0, 0],[0, 0, 0]]
