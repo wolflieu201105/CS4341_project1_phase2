@@ -77,7 +77,6 @@ class LaskerMorrisPlayer:
         self.max_depth = 4  # Adjust based on performance
         self.time_limit = 0.95  # 950ms time limit for moves
         self.start_time = None
-        self.transposition_table = {}  # Add transposition table
 
     def initialize_game(self, color):
         self.my_color = 'X' if color == "blue" else 'O'
@@ -143,110 +142,44 @@ class LaskerMorrisPlayer:
     def is_time_up(self):
         return time.time() - self.start_time > self.time_limit
 
-    def iterative_deepening_search(self, state):
-        """Iterative deepening search with transposition table."""
-        self.start_time = time.time()
-        best_move = None
-        current_depth = 1
-
-        try:
-            while time.time() - self.start_time < self.time_limit:
-                value, move = self.alpha_beta_search(
-                    state,
-                    current_depth,
-                    float('-inf'),
-                    float('inf'),
-                    True,
-                    True  # Use move ordering
-                )
-                if move:
-                    best_move = move
-                current_depth += 1
-                if value >= 1000:  # Winning move found
-                    break
-        except TimeoutError:
-            pass
-
-        return best_move
-
-    def alpha_beta_search(self, state, depth, alpha, beta, is_max_player, use_move_ordering=True):
-        """Alpha-beta pruning with heuristics."""
-        if self.is_time_up():
-            raise TimeoutError
-
-        state_hash = self.hash_state(state)
-        if state_hash in self.transposition_table:
-            stored_depth, stored_value, stored_move = self.transposition_table[state_hash]
-            if stored_depth >= depth:
-                return stored_value, stored_move
-
-        if depth == 0:
+    def alpha_beta_search(self, state, depth, alpha, beta, is_max_player):
+        if depth == 0 or self.is_time_up():
             return self.evaluate_position(state), None
 
-        possible_moves = self.get_possible_moves(state, is_max_player)
-        if not possible_moves:
-            return -1000 if is_max_player else 1000, None
+        if is_max_player:
+            best_value = float('-inf')
+            best_move = None
 
-        if use_move_ordering:
-            possible_moves = self.order_moves(state, possible_moves, is_max_player)
+            for move in self.get_possible_moves(state, True):
+                new_state = self.apply_move(state, move, True)
+                value, _ = self.alpha_beta_search(new_state, depth - 1, alpha, beta, False)
 
-        best_value, best_move = (float('-inf'), None) if is_max_player else (float('inf'), None)
-
-        for move in possible_moves:
-            new_state = self.apply_move(state, move, is_max_player)
-            value, _ = self.alpha_beta_search(new_state, depth - 1, alpha, beta, not is_max_player,
-                                              use_move_ordering)
-
-            if is_max_player:
                 if value > best_value:
-                    best_value, best_move = value, move
+                    best_value = value
+                    best_move = move
+
                 alpha = max(alpha, best_value)
-            else:
+                if beta <= alpha:
+                    break
+
+            return best_value, best_move
+        else:
+            best_value = float('inf')
+            best_move = None
+
+            for move in self.get_possible_moves(state, False):
+                new_state = self.apply_move(state, move, False)
+                value, _ = self.alpha_beta_search(new_state, depth - 1, alpha, beta, True)
+
                 if value < best_value:
-                    best_value, best_move = value, move
+                    best_value = value
+                    best_move = move
+
                 beta = min(beta, best_value)
+                if beta <= alpha:
+                    break
 
-            if beta <= alpha:
-                break  # Prune
-
-        self.transposition_table[state_hash] = (depth, best_value, best_move)
-        return best_value, best_move
-    def order_moves(self, state, moves, is_max_player):
-        """Order moves based on heuristics for better pruning"""
-        move_scores = []
-
-        for move in moves:
-            score = 0
-
-            # Prioritize moves that form mills
-            if self.check_mill(move[0] if move[0] != "h" else "h", move[1]):
-                score += 100
-
-            # Prioritize moves to center positions
-            if move[1] in ["b4", "d4", "f4", "d2", "d6"]:
-                score += 50
-
-            # Prioritize moves that block opponent mills
-            new_state = self.apply_move(state, move, is_max_player)
-            opponent_mills = self.count_mills(new_state.board,
-                                              new_state.opponent_pieces if is_max_player else new_state.my_pieces,
-                                              not is_max_player)
-            score -= opponent_mills * 30
-
-            move_scores.append((score, move))
-
-        # Sort moves by score in descending order
-        move_scores.sort(reverse=True)
-        return [move for _, move in move_scores]
-
-    def hash_state(self, state):
-        """Create a hash of the current state for the transposition table"""
-        board_str = ''.join(str(state.board.get(pos, 'E')) for pos in sorted(VALID_MOVES))
-        return hash((board_str,
-                     tuple(sorted(state.my_pieces)),
-                     tuple(sorted(state.opponent_pieces)),
-                     state.phase,
-                     state.pieces_in_hand))
+            return best_value, best_move
 
     def get_possible_moves(self, state, is_max_player):
         moves = []
@@ -305,7 +238,9 @@ class LaskerMorrisPlayer:
         return state
 
     def make_move(self):
-        """Generate the best move with alpha-beta pruning and iterative deepening."""
+        """Generate the best move using alpha-beta pruning"""
+        self.start_time = time.time()
+
         current_state = GameState(
             self.board.copy(),
             self.my_pieces.copy(),
@@ -313,18 +248,26 @@ class LaskerMorrisPlayer:
             self.phase,
             self.pieces_in_hand
         )
-        best_move = self.iterative_deepening_search(current_state)
+
+        _, best_move = self.alpha_beta_search(
+            current_state,
+            self.max_depth,
+            float('-inf'),
+            float('inf'),
+            True
+        )
 
         if not best_move:
             return None
 
         if best_move[0] == "h":
-            remove_piece = self.get_removable_piece() if self.check_mill("h",
-                                                                         best_move[1]) else "r0"
+            forms_mill = self.check_mill("h", best_move[1])
+            remove_piece = self.get_removable_piece() if forms_mill else "r0"
             return f"h{1 if self.my_color == 'X' else 2} {best_move[1]} {remove_piece}"
         else:
             from_pos, to_pos = best_move
-            remove_piece = self.get_removable_piece() if self.check_mill(from_pos, to_pos) else "r0"
+            forms_mill = self.check_mill(from_pos, to_pos)
+            remove_piece = self.get_removable_piece() if forms_mill else "r0"
             return f"{from_pos} {to_pos} {remove_piece}"
 
     # Keep existing methods: check_mill, get_removable_piece, update_game_state, etc.
@@ -368,41 +311,6 @@ class LaskerMorrisPlayer:
         elif self.opponent_pieces:
             return random.choice(self.opponent_pieces)
         return "r0"
-    
-    def evaluate_board(board, my_color, opponent_color):
-        """
-        Evaluates the given board configuration and returns a score for the current player.
-        
-        :param board: Dictionary representing the board state {position: 'X' or 'O' or None}.
-        :param my_color: The color of the current player ('X' for blue, 'O' for orange).
-        :param opponent_color: The color of the opponent player.
-        :return: Positive score if current player is winning, negative score if losing, 0 for draw.
-        """
-        my_pieces = sum(1 for pos in board if board[pos] == my_color)
-        opponent_pieces = sum(1 for pos in board if board[pos] == opponent_color)
-
-        # Check if the game is won/lost
-        if opponent_pieces < 3:
-            return 1000  # Winning score
-        if my_pieces < 3:
-            return -1000  # Losing score
-
-        # Check if opponent is immobilized
-        opponent_moves = sum(1 for pos in board if board[pos] == opponent_color and any(
-            board.get(neigh) is None for neigh in NEIGHBORS.get(pos, [])))
-        
-        if opponent_moves == 0:
-            return 1000  # Winning score
-
-        # Heuristic scoring
-        score = 10 * (my_pieces - opponent_pieces)  # More pieces is better
-        my_mills = sum(1 for mill in MILLS if all(board.get(pos) == my_color for pos in mill))
-        opponent_mills = sum(1 for mill in MILLS if all(board.get(pos) == opponent_color for pos in mill))
-        
-        score += 50 * (my_mills - opponent_mills)  # Mills are valuable
-
-        return score
-
 
     def update_game_state(self, move):
         parts = move.split()
@@ -445,93 +353,6 @@ class LaskerMorrisPlayer:
                 self.phase = "flying"
             else:
                 self.phase = "moving"
-
-    # def minimax(board, depth, is_maximizing, my_color, opponent_color, alpha, beta):
-    #     """
-    #     Minimax function with alpha-beta pruning to evaluate the best move.
-
-    #     :param board: Dictionary representing the board state {position: 'X' or 'O' or None}.
-    #     :param depth: Current depth in the minimax search tree.
-    #     :param is_maximizing: Boolean indicating whether we are maximizing or minimizing.
-    #     :param my_color: The color of the current player ('X' for blue, 'O' for orange).
-    #     :param opponent_color: The color of the opponent.
-    #     :param alpha: Alpha value for pruning.
-    #     :param beta: Beta value for pruning.
-    #     :return: The best score for the given board configuration.
-    #     """
-    #     if depth == 0 or is_terminal_state(board, my_color, opponent_color):
-    #         return evaluate_board(board, my_color, opponent_color)
-
-    #     valid_moves = get_valid_moves(board, my_color if is_maximizing else opponent_color)
-
-    #     if is_maximizing:
-    #         max_eval = float('-inf')
-    #         for move in valid_moves:
-    #             new_board = simulate_move(board, move, my_color)
-    #             eval_score = minimax(new_board, depth - 1, False, my_color, opponent_color, alpha, beta)
-    #             max_eval = max(max_eval, eval_score)
-    #             alpha = max(alpha, eval_score)
-    #             if beta <= alpha:
-    #                 break  # Beta cut-off
-    #         return max_eval
-    #     else:
-    #         min_eval = float('inf')
-    #         for move in valid_moves:
-    #             new_board = simulate_move(board, move, opponent_color)
-    #             eval_score = minimax(new_board, depth - 1, True, my_color, opponent_color, alpha, beta)
-    #             min_eval = min(min_eval, eval_score)
-    #             beta = min(beta, eval_score)
-    #             if beta <= alpha:
-    #                 break  # Alpha cut-off
-    #         return min_eval
-        
-    # def is_terminal_state(board, my_color, opponent_color):
-    #     """
-    #     Checks if the game has reached a terminal state (win, loss, draw).
-
-    #     :param board: The current board state.
-    #     :param my_color: The current player's color.
-    #     :param opponent_color: The opponent's color.
-    #     :return: True if the game is over, False otherwise.
-    #     """
-    #     my_pieces = sum(1 for pos in board if board[pos] == my_color)
-    #     opponent_pieces = sum(1 for pos in board if board[pos] == opponent_color)
-
-    #     if my_pieces < 3 or opponent_pieces < 3:
-    #         return True  # A player has lost
-    #     if not get_valid_moves(board, opponent_color):
-    #         return True  # Opponent is immobilized (win for current player)
-    #     return False
-
-    # def get_valid_moves(board, player_color):
-    #     """
-    #     Returns a list of valid moves for the given player.
-
-    #     :param board: The current board state.
-    #     :param player_color: The color of the player to get moves for.
-    #     :return: List of valid moves.
-    #     """
-    #     moves = []
-    #     for piece in [pos for pos in board if board[pos] == player_color]:
-    #         for neighbor in NEIGHBORS.get(piece, []):
-    #             if board.get(neighbor) is None:
-    #                 moves.append((piece, neighbor))  # Move from piece to neighbor
-    #     return moves
-
-    # def simulate_move(board, move, player_color):
-    #     """
-    #     Simulates a move and returns a new board state.
-
-    #     :param board: The current board state.
-    #     :param move: The move to simulate (tuple: (from_pos, to_pos)).
-    #     :param player_color: The color of the player making the move.
-    #     :return: A new board dictionary after the move.
-    #     """
-    #     new_board = board.copy()
-    #     from_pos, to_pos = move
-    #     new_board[from_pos] = None
-    #     new_board[to_pos] = player_color
-    #     return new_board
 
 
 def main():
