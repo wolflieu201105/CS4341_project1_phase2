@@ -202,10 +202,33 @@ def checkPossibleMoves(board, row, col):
 
 # evaluation function for heuristic
 def evaluate(board, turn):
-    blue_moves = len(checkSpacesState(board, 1))
-    orange_moves = len(checkSpacesState(board, -1))
+    score = 0
+    blue_moves = checkSpacesState(board, 1)
+    orange_moves = checkSpacesState(board, -1)
+
+    center_positions = [[0,1],[1,1],[2,1],[4,1],[5,1],[6,1],[3,0],[3,1],[3,2],[3,3],[3,4],[3,5]]
+
+    for i in range(len(blue_moves)):
+        if checkForMill(board, blue_moves[i][0], blue_moves[i][1], 1):
+            score += 30
+        if blue_moves[i] in center_positions:
+            score += 10
+    for i in range(len(orange_moves)):
+        if orange_moves[i] in center_positions:
+            score -= 10
+        if checkForMill(board, orange_moves[i][0], orange_moves[i][1], -1):
+            score -= 30
     
-    return (blue_moves - orange_moves) * 100
+    if (turn <= 20):
+        return (len(blue_moves) - len(orange_moves)) * 100
+    
+    score += (len(blue_moves) - len(orange_moves)) * 50
+
+    for i in range(len(blue_moves)):
+        score += len(checkPossibleMoves(board, blue_moves[i][0], blue_moves[i][1]))*5
+    for i in range(len(orange_moves)):
+        score -= len(checkPossibleMoves(board, orange_moves[i][0], orange_moves[i][1]))*5
+    return score
 
 
 # max pruning function
