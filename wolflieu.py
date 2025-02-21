@@ -421,7 +421,7 @@ def main():
     blue = True
     myTurn = False
     turns = 0
-    lastChanged = 20
+    lastChanged = 21
     game_input = input().strip()
     if game_input == "blue":
         myTurn = True
@@ -435,7 +435,7 @@ def main():
                 print(move, flush = True)
                 board = changeBoard(board, move, 1)
                 myTurn = False
-                if turns >= 20:
+                if turns > 20:
                     if move[7] != "0":
                         lastChanged = turns
             
@@ -444,7 +444,7 @@ def main():
                 board = changeBoard(board, move, -1)
                 myTurn = True
                 turns += 1
-                if turns >= 20:
+                if turns > 20:
                     if move[7] != "0":
                         lastChanged = turns
         except EOFError:
