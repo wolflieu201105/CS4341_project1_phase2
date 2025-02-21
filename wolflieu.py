@@ -1,5 +1,6 @@
 import sys
 
+#convert the text to move in array
 def moveToIndex(str):
     if (str == "h1" or str == "r0"):
         return [-1, -1]
@@ -17,6 +18,7 @@ def moveToIndex(str):
             col -= 1
     return [row, col]
 
+# convert the move from number in array into text
 def indexToMove(row, col):
     if (row == 3):
         if (col < 3):
@@ -30,6 +32,7 @@ def indexToMove(row, col):
     else:
         return chr(100 + abs(3 - row)) + str(7 - row)
 
+# for debugging purpose, print out the board
 def printBoard(board):
     for i in range(7):
         if (abs(3 - i) == 3):
@@ -41,6 +44,7 @@ def printBoard(board):
         else:
             print("\t" + str(board[i][0]) + "\t" +  str(board[i][1]) + "\t" +  str(board[i][2]) + "\t" + "\t" +  str(board[i][3]) + "\t" +  str(board[i][4]) + "\t" +  str(board[i][5]))
 
+# with a legal move used provided by the referee, change the board accordingly
 def changeBoard(board, move, type):
     move = move.split(" ")
     if (move[0] != "h1" and move[0] != "h2"):
@@ -53,6 +57,7 @@ def changeBoard(board, move, type):
         board[moveUsed[0]][moveUsed[1]] = 0
     return board
 
+# change a position of the board to type
 def changeBoardWithIndex(board, row, col, type):
     board[row][col] = type
     return board
@@ -97,6 +102,7 @@ def checkForMill(board, row, col, type):
                 return True
     return False
 
+# if the remaining pieces on the board is 2 (assuming the turn is in phase 2)
 def checkWinByNumber(board, type):
     type = -type
     count = 0
@@ -111,6 +117,7 @@ def checkWinByNumber(board, type):
         return True
     return False
 
+# return all the positions of the board where the position = type
 def checkSpacesState(board, type):
     possibleMoves = []
     for i in range(7):
@@ -122,6 +129,7 @@ def checkSpacesState(board, type):
             possibleMoves.append([3, i + 3])
     return possibleMoves
 
+# check for opponent pieces that is not in mill. If all pieces are in a mill, return all opponents pieces
 def checkRemovableSpaces(board, type):
     possibleMoves = checkSpacesState(board, type)
     i = 0
@@ -134,6 +142,7 @@ def checkRemovableSpaces(board, type):
         possibleMoves = checkSpacesState(board, type)
     return possibleMoves
 
+# with a piece ar row,col, determine the positions that the piece can move to
 def checkPossibleMoves(board, row, col):
     possibleMoves = []
     if row != 3:
@@ -191,48 +200,65 @@ def checkPossibleMoves(board, row, col):
                     possibleMoves.append([3, col + 1])
     return possibleMoves
 
+# evaluation function for heuristic
 def evaluate(board, turn):
     blue_moves = len(checkSpacesState(board, 1))
     orange_moves = len(checkSpacesState(board, -1))
     
     return (blue_moves - orange_moves) * 100
 
-    
+
+# max pruning function
 def maxPruning(board, depth, alpha, beta, turn, lastChanged):
+    # check if the position is at a loss
     if turn > 20:
         if (checkWinByNumber(board, -1)):
             return -1000
+    # check if the position is in a stalemate
     if turn - lastChanged == 20:
         return 0
+    # if depth = 0, then return the evaluation function
     if (depth == 0):
         return evaluate(board, turn)
+    # if turn <= 20, this means that there are still pieces on hand.
     if (turn <= 20):
+        # check for empty spaces that the player can put down
         possibleMoves = checkSpacesState(board, 0)
         for i in range(len(possibleMoves)):
+            # change the board accordingly
             board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 1)
+            # if the move create a mill, move into this function
             if (checkForMill(board, possibleMoves[i][0], possibleMoves[i][1], 1)):
+                # check for opponents' removable pieces
                 possibleRemoves = checkRemovableSpaces(board, -1)
                 for k in range(len(possibleRemoves)):
                     board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], 0)
+                    # minimax
                     value = minPruning(board, depth - 1, alpha, beta, turn + 1, turn + 1)
                     if (value > beta):
                         beta = value
                     board = changeBoardWithIndex(board, possibleRemoves[k][0], possibleRemoves[k][1], -1)
             else:
+                # minimax
                 value = minPruning(board, depth - 1, alpha, beta, turn + 1, turn + 1)
                 if (value > beta):
                     beta = value
             board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 0)
+            # alpha beta pruning
             if alpha <= beta:
                 return alpha
+    # phase 2 and 3 where the player has to move the pieces on the table
     elif (turn > 20):
+        # check all position of the player's pieces
         ChoosablePieces = checkSpacesState(board, 1)
         possibleMoves = []
         for l in range(len(ChoosablePieces)):
+            # Check if the player can fly
             if len(ChoosablePieces) == 3:
                 possibleMoves = checkSpacesState(board, 0)
             else:
                 possibleMoves = checkPossibleMoves(board, ChoosablePieces[l][0], ChoosablePieces[l][1])
+            # everything else follow the same thing
             board = changeBoardWithIndex(board, ChoosablePieces[l][0], ChoosablePieces[l][1], 0)
             for i in range(len(possibleMoves)):
                 board = changeBoardWithIndex(board, possibleMoves[i][0], possibleMoves[i][1], 1)
@@ -315,10 +341,13 @@ def minPruning(board, depth, alpha, beta, turn, lastChanged):
 
 
 def makeMove(board, turn, lastChanged, isBlue):
+    # initialize depth, alpha and beta 
     depth = 5
     alpha = 2000
     beta = -2000
     if turn > 20:
+        if (checkWinByNumber(board, 1)):
+            return "I won"
         if (checkWinByNumber(board, -1)):
             return "I lost"
     if turn - lastChanged == 20:
@@ -326,6 +355,7 @@ def makeMove(board, turn, lastChanged, isBlue):
     firstMove = ""
     secondMove = ""
     thirdMove = "r0"
+    # everything also follows max pruning function except when the value is larger than beta, update the move
     if (turn <= 20):
         firstMove = "h2"
         if (isBlue):
