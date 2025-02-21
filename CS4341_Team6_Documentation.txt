@@ -1,0 +1,31 @@
+﻿Intro to AI - Team 6 Documentation
+
+1. Members:
+* Huy Pham: In charge of the heuristics and alpha-beta implementation
+* Minh Bui: Implemented the board, minimax function, and move generation
+* Khoi Dao: Integrated the referee, enhanced the heuristics, and documenting
+2. Running:
+        Firstly, we need to install the referee by running ‘pip install git+https://github.com/jake-molnia/cs4341-referee.git’. Make sure to have any prerequisites based on the referee GitHub repository.
+        To run the program, run ‘cs4341-referee laskermorris -p1 "python wolflieu.py" -p2 "python wolflieu.py" --visual’. Replace any of the wolflieu.py for a Lasker Morris program of your liking.
+3. Utility function:
+We have the function checkSpaceState(board, type), which returns a list of possible moves that a player could make. We have 2 parameters: board which is the current board, and type which is the type of player (1 for Blue, -1 for Orange)
+4. Evaluation function:
+We have the utility function evaluate(board, turn) which evaluates the move: if the turns are less than 20, then return the heuristics value according to (number of blue’s moves - number of orange’s moves) * 100. If the turns are more than 20, then we return the number of pieces we possess in the center. The more moves we have over the opponent’s, the better.
+5. Heuristics Used:
+* Favor moves that lead to mills.
+* Prefer moves that maximize mobility.
+* Avoid placing pieces where they can be easily removed.
+We also employed minimax with alpha-beta pruning with heuristics to cut down on the expandable branches.
+6. Results:
+* Our program played against its own and another bot using random strategy
+* Against itself, it always lead to draws
+* Against the random bot, it might win or lose
+* Strengths:
+   * The program was relatively quick and consistent
+   * Works well against opponents playing optimal moves
+* Weaknesses:
+   * If the opponent doesn’t make optimal moves, the program can produce mixed results
+7. Discussion:
+* The evaluation function captures the positional advantages
+* Prioritizing mills can enhance strategic depth
+* The heuristics help the AI to be both defensive and offensive, while cutting down on computational time
